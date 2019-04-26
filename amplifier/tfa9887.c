@@ -173,6 +173,37 @@ static int i2s_interface_en_offload(bool enable)
     mixer_close(mixer);
     return 0;
 }
+
+static int i2s_interface_en_lowlatency(bool enable)
+{
+    enum mixer_ctl_type type;
+    struct mixer_ctl *ctl;
+    struct mixer *mixer = mixer_open(0);
+
+    if (mixer == NULL) {
+        ALOGE("%s: Error opening mixer 0", __func__);
+        return -1;
+    }
+    
+    ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM5);
+    if( ctl == NULL ) {
+        ALOGE("%s: Could not find %s\n", __func__, I2S_MIXER_CTL_MM5);
+	return -ENODEV;
+    }
+
+    type = mixer_ctl_get_type(ctl);
+    if (type != MIXER_CTL_TYPE_BOOL) {
+        ALOGE("%s: %s is not supported\n", __func__, I2S_MIXER_CTL_MM5);
+        mixer_close(mixer);
+        return -ENOTTY;
+    }
+    ALOGD("%s: mixer: %s, ctl:%s\n", __func__,mixer_get_name(mixer) ,mixer_ctl_get_name(ctl));
+    mixer_ctl_set_value(ctl, 0, enable);
+    mixer_close(mixer);
+    return 0;
+}
+
+
 void * write_dummy_data(void *param)
 {
     struct tfa9887_amp_t *amp = (struct tfa9887_amp_t *) param;
@@ -1333,8 +1364,9 @@ static int tfa9887_hw_init(struct tfa9887_amp_t *amp, int sample_rate)
     }
 
     if (amp->is_right) {
-        channel = 1;
+        //channel = 1;
         //channel = 2;
+        channel = 0;
         patch_file = PATCH_TFA9887;
         speaker_file = SPKR_R;
     } else {
@@ -1810,11 +1842,13 @@ int tfa9887_power(bool on, bool offload)
     }
     tfa9887_amp_enable = on;
     ALOGI("%s: Offload = %d\n", __func__, offload );
+#if 0
     if (offload) { 
         i2s_interface_en_offload( tfa9887_amp_enable );
     } else {
 	i2s_interface_en( tfa9887_amp_enable );
     }
+#endif
     ALOGI("%s: Set amplifier power to %d\n", __func__, on);
 
     return 0;
