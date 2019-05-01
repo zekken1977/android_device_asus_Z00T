@@ -10,6 +10,7 @@ LOCAL_SHARED_LIBRARIES += libutils \
                           libutilscallstack
 
 
+LOCAL_CFLAGS += -funwind-tables
 #LOCAL_CFLAGS += \
 	-DTFA9887_HAL_DEBUG_ENABLE
 

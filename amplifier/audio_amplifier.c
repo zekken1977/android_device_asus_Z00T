@@ -39,15 +39,16 @@ typedef struct amp_device {
 } amp_device_t;
 
 static amp_device_t *amp_dev = NULL;
+//static amp_device_t amp_dev;
 
 static int amp_set_mode(amplifier_device_t *device, audio_mode_t mode)
 {
     int ret = 0;
     amp_device_t *dev = (amp_device_t *) device;
 
-    ALOGD("%s: current mode is %d\n",__func__, dev->current_mode);
+    ALOGV("%s: current mode is %d\n",__func__, dev->current_mode);
     dev->current_mode = mode;
-    ALOGD("%s: current mode set to %d\n",__func__, dev->current_mode);
+    ALOGV("%s: current mode set to %d\n",__func__, dev->current_mode);
 
     return ret;
 }
@@ -59,9 +60,10 @@ static int amp_set_output_devices(amplifier_device_t *device, uint32_t devices)
     switch (devices) {
         case SND_DEVICE_OUT_HEADPHONES:
         case SND_DEVICE_OUT_VOICE_HEADPHONES:
-        case SND_DEVICE_OUT_VOIP_HEADPHONES:
+        //case SND_DEVICE_OUT_VOIP_HEADPHONES:
         case SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES:
             //rt5506_set_mode(dev->current_mode);
+            //tfa9887_power(true, false);
             break;
     }
     return 0;
@@ -94,7 +96,7 @@ static int amp_enable_output_devices(amplifier_device_t *device,
         case SND_DEVICE_OUT_SPEAKER_REVERSE:
         case SND_DEVICE_OUT_VOICE_SPEAKER:
         case SND_DEVICE_OUT_SPEAKER_PROTECTED:
-        case SND_DEVICE_OUT_VOIP_SPEAKER:
+        //case SND_DEVICE_OUT_VOIP_SPEAKER:
         case SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES:
             tfa9887_power(enable, false); /* Usecase is unknown */
             if (enable)
@@ -128,6 +130,7 @@ static int amp_output_stream_start(amplifier_device_t *device, struct audio_stre
 
 static int amp_dev_close(hw_device_t *device)
 {
+    ALOGV("%s: amp module close\n", __func__);
     amp_device_t *dev = (amp_device_t *) device;
 
     tfa9887_power(false, false);
@@ -141,7 +144,9 @@ static int amp_dev_close(hw_device_t *device)
 static int amp_module_open(const hw_module_t *module, UNUSED const char *name,
         hw_device_t **device)
 {
-    ALOGD("%s: amp module open to %s\n", __func__, name );
+    ALOGV("%s: amp module open to %s\n", __func__, name );
+
+#if 1
     if (amp_dev) {
         ALOGE("%s:%d: Unable to open second instance of TFA9887 amplifier\n",
                 __func__, __LINE__);
@@ -154,7 +159,6 @@ static int amp_module_open(const hw_module_t *module, UNUSED const char *name,
                 __func__, __LINE__);
         return -ENOMEM;
     }
-
     amp_dev->amp_dev.common.tag = HARDWARE_DEVICE_TAG;
     amp_dev->amp_dev.common.module = (hw_module_t *) module;
     amp_dev->amp_dev.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -165,13 +169,32 @@ static int amp_module_open(const hw_module_t *module, UNUSED const char *name,
     amp_dev->amp_dev.enable_input_devices = NULL;
     amp_dev->amp_dev.enable_output_devices = amp_enable_output_devices;
     amp_dev->amp_dev.set_mode = amp_set_mode;
-//    amp_dev->amp_dev.output_stream_start = NULL;
-    amp_dev->amp_dev.output_stream_start = amp_output_stream_start;
+    amp_dev->amp_dev.output_stream_start = NULL;
+//    amp_dev->amp_dev.output_stream_start = amp_output_stream_start;
     amp_dev->amp_dev.input_stream_start = NULL;
     amp_dev->amp_dev.output_stream_standby = NULL;
     amp_dev->amp_dev.input_stream_standby = NULL;
 
     amp_dev->current_mode = AUDIO_MODE_NORMAL;
+#else
+    amp_dev.amp_dev.common.tag = HARDWARE_DEVICE_TAG;
+    amp_dev.amp_dev.common.module = (hw_module_t *) module;
+    amp_dev.amp_dev.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
+    amp_dev.amp_dev.common.close = amp_dev_close;
+
+    amp_dev.amp_dev.set_input_devices = NULL;
+    amp_dev.amp_dev.set_output_devices = amp_set_output_devices;
+    amp_dev.amp_dev.enable_input_devices = NULL;
+    amp_dev.amp_dev.enable_output_devices = amp_enable_output_devices;
+    amp_dev.amp_dev.set_mode = amp_set_mode;
+//    amp_dev.amp_dev.output_stream_start = NULL;
+    amp_dev.amp_dev.output_stream_start = amp_output_stream_start;
+    amp_dev.amp_dev.input_stream_start = NULL;
+    amp_dev.amp_dev.output_stream_standby = NULL;
+    amp_dev.amp_dev.input_stream_standby = NULL;
+
+    amp_dev.current_mode = AUDIO_MODE_NORMAL;
+#endif
 
     *device = (hw_device_t *) amp_dev;
 

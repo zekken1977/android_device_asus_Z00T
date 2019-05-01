@@ -100,6 +100,8 @@ const struct mode_config_t left_mode_configs[TFA9887_MODE_MAX] = {
 #define AMP_LEFT 1
 #define AMP_MAX 2
 static struct tfa9887_amp_t *amps = NULL;
+//static struct tfa9887_amp_t amps[AMP_MAX];
+
 static bool tfa9887_amp_enable = false;
 
 /* Helper functions */
@@ -114,18 +116,6 @@ static int i2s_interface_en(bool enable)
         ALOGE("%s: Error opening mixer 0", __func__);
         return -1;
     }
-#if 0
-    if( (ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM5)) != NULL ) { /* MultiMedia5 */
-	ALOGD("%s: Found : %s\n", __func__, mixer_ctl_get_name(ctl));
-    } else if( (ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM4))) { /* MultiMedia4 */
-	ALOGD("%s: Found : %s\n", __func__, mixer_ctl_get_name(ctl));
-    } else if( (ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL)) ) { /* MultiMedia1 */
-	ALOGD("%s: Found : %s\n", __func__, mixer_ctl_get_name(ctl));
-    } else { /* Not Found */
-        ALOGE("%s: Could not find %s\n", __func__, I2S_MIXER_CTL);
-	return -ENODEV;
-    }
-#endif
 
     ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL);
     if( ctl == NULL ) {
@@ -139,70 +129,11 @@ static int i2s_interface_en(bool enable)
         mixer_close(mixer);
         return -ENOTTY;
     }
-    ALOGD("%s: mixer: %s, ctl:%s\n", __func__,mixer_get_name(mixer) ,mixer_ctl_get_name(ctl));
+    ALOGV("%s: mixer: %s, ctl:%s\n", __func__,mixer_get_name(mixer) ,mixer_ctl_get_name(ctl) );
     mixer_ctl_set_value(ctl, 0, enable);
     mixer_close(mixer);
     return 0;
 }
-
-static int i2s_interface_en_offload(bool enable)
-{
-    enum mixer_ctl_type type;
-    struct mixer_ctl *ctl;
-    struct mixer *mixer = mixer_open(0);
-
-    if (mixer == NULL) {
-        ALOGE("%s: Error opening mixer 0", __func__);
-        return -1;
-    }
-    
-    ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM4);
-    if( ctl == NULL ) {
-        ALOGE("%s: Could not find %s\n", __func__, I2S_MIXER_CTL_MM4);
-	return -ENODEV;
-    }
-
-    type = mixer_ctl_get_type(ctl);
-    if (type != MIXER_CTL_TYPE_BOOL) {
-        ALOGE("%s: %s is not supported\n", __func__, I2S_MIXER_CTL_MM4);
-        mixer_close(mixer);
-        return -ENOTTY;
-    }
-    ALOGD("%s: mixer: %s, ctl:%s\n", __func__,mixer_get_name(mixer) ,mixer_ctl_get_name(ctl));
-    mixer_ctl_set_value(ctl, 0, enable);
-    mixer_close(mixer);
-    return 0;
-}
-
-static int i2s_interface_en_lowlatency(bool enable)
-{
-    enum mixer_ctl_type type;
-    struct mixer_ctl *ctl;
-    struct mixer *mixer = mixer_open(0);
-
-    if (mixer == NULL) {
-        ALOGE("%s: Error opening mixer 0", __func__);
-        return -1;
-    }
-    
-    ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM5);
-    if( ctl == NULL ) {
-        ALOGE("%s: Could not find %s\n", __func__, I2S_MIXER_CTL_MM5);
-	return -ENODEV;
-    }
-
-    type = mixer_ctl_get_type(ctl);
-    if (type != MIXER_CTL_TYPE_BOOL) {
-        ALOGE("%s: %s is not supported\n", __func__, I2S_MIXER_CTL_MM5);
-        mixer_close(mixer);
-        return -ENOTTY;
-    }
-    ALOGD("%s: mixer: %s, ctl:%s\n", __func__,mixer_get_name(mixer) ,mixer_ctl_get_name(ctl));
-    mixer_ctl_set_value(ctl, 0, enable);
-    mixer_close(mixer);
-    return 0;
-}
-
 
 void * write_dummy_data(void *param)
 {
@@ -223,7 +154,7 @@ void * write_dummy_data(void *param)
         .avail_min = 960 / 4,
     };
 
-    ALOGD("%s: dummy data write\n", __func__ );
+    ALOGV("%s: dummy data write\n", __func__ );
     if (i2s_interface_en(true)) {
         ALOGE("%s: Failed to enable I2S interface\n", __func__);
         goto err_signal;
@@ -348,7 +279,7 @@ static int tfa9887_read_reg(struct tfa9887_amp_t *amp, uint8_t reg,
     if (!amp) {
         return -ENODEV;
     }
-    ALOGD("%s: read reg fd:%d reg:%04x\n", __func__, amp->fd, reg );
+    ALOGV("%s: read reg fd:%d reg:%04x\n", __func__, amp->fd, reg );
     reg_val[0] = 2;
     reg_val[1] = (unsigned int) &buf;
     /* unsure why the first byte is skipped */
@@ -367,7 +298,7 @@ static int tfa9887_read_reg(struct tfa9887_amp_t *amp, uint8_t reg,
     }
 
     *val = ((buf[0] << 8) | buf[1]);
-    ALOGD("%s: read reg addr:%d val:%02x\n", __func__, amp->fd, *val );
+    ALOGV("%s: read reg addr:%d val:%02x\n", __func__, amp->fd, *val );
 
 read_reg_err:
     return rc;
@@ -385,7 +316,7 @@ static int tfa9887_write_reg(struct tfa9887_amp_t *amp, uint8_t reg,
         return -ENODEV;
     }
 
-    ALOGD("%s: write reg fd:%d reg:%04x val:%04x\n", __func__, amp->fd,reg,val );
+    ALOGV("%s: write reg fd:%d reg:%04x val:%04x\n", __func__, amp->fd,reg,val );
     reg_val[0] = 4;
     reg_val[1] = (unsigned int) &buf;
     /* unsure why the first byte is skipped */
@@ -416,7 +347,7 @@ static int tfa9887_read(struct tfa9887_amp_t *amp, int addr, uint8_t *buf,
     }
 
 
-    ALOGD("%s: read buffers fd:%d addr:%04x\n", __func__, amp->fd, addr);
+    ALOGV("%s: read buffers fd:%d addr:%04x\n", __func__, amp->fd, addr);
     reg_val[0] = 2;
     reg_val[1] = (unsigned int) &reg_buf;
     /* unsure why the first byte is skipped */
@@ -458,7 +389,7 @@ static int tfa9887_write(struct tfa9887_amp_t *amp, int addr,
         return -ENODEV;
     }
 
-    ALOGD("%s: write buffers fd:%d addr:%04x\n", __func__, amp->fd, addr);
+    ALOGV("%s: write buffers fd:%d addr:%04x\n", __func__, amp->fd, addr);
 #ifdef TFA9887_HAL_DEBUG_ENABLE
     int i;
     for( i=0; i<len; i++ ) {
@@ -554,7 +485,7 @@ static int tfa9887_load_patch(struct tfa9887_amp_t *amp, const char *file_name)
     }
 
     length = read_file(file_name, bytes, MAX_PATCH_SIZE, PATCH_HEADER_LENGTH);
-    ALOGD("%s: read patch file size:%d\n", __func__, length);
+    ALOGV("%s: read patch file size:%d\n", __func__, length);
     if (length < 0) {
         ALOGE("%s: Unable to read patch file\n", __func__);
         return -EIO;
@@ -568,9 +499,9 @@ static int tfa9887_load_patch(struct tfa9887_amp_t *amp, const char *file_name)
             return -EIO;
         }
     }
-    ALOGI("%s: TFA9887 status %u", __func__, status);
+    ALOGV("%s: TFA9887 status %u", __func__, status);
     rc = tfa9887_read_mem(amp, 0x2210, 1, &value);
-    ALOGI("%s: TFA9887 version %x", __func__, value);
+    ALOGV("%s: TFA9887 version %x", __func__, value);
     while (index < length) {
         /* extract little endian length */
         size = bytes[index] + bytes[index+1] * 256;
@@ -871,7 +802,7 @@ static int tfa9887_hw_power(struct tfa9887_amp_t *amp, bool on)
     uint8_t ioctl_buf[2];
 
     if (amp->is_on == on) {
-        ALOGV("%s: Already powered on\n", __func__);
+        ALOGD("%s: Already powered on\n", __func__);
         return 0;
     }
 
@@ -1370,7 +1301,7 @@ static int tfa9887_hw_init(struct tfa9887_amp_t *amp, int sample_rate)
         patch_file = PATCH_TFA9887;
         speaker_file = SPKR_R;
     } else {
-        channel = 0;
+        channel = 1;
         patch_file = PATCH_TFA9887;
         speaker_file = SPKR_L;
     }
@@ -1427,20 +1358,20 @@ static int tfa9887_hw_init(struct tfa9887_amp_t *amp, int sample_rate)
     }
 
     /* load firmware */
-    ALOGD("%s: Load patch data %s\n", __func__, patch_file);
+    ALOGV("%s: Load patch data %s\n", __func__, patch_file);
     rc = tfa9887_load_patch(amp, patch_file);
     if (rc != 0) {
         ALOGE("%s: Unable to load patch data", __func__);
         goto priv_init_err;
     }
-    ALOGD("%s: Load spk data %s\n", __func__, speaker_file);
+    ALOGV("%s: Load spk data %s\n", __func__, speaker_file);
     rc = tfa9887_load_dsp(amp, speaker_file);
     if (rc != 0) {
         ALOGE("%s: Unable to load speaker data", __func__);
         goto priv_init_err;
     }
 
-    ALOGI("%s: Initialized hardware", __func__);
+    ALOGV("%s: Initialized hardware", __func__);
 
 priv_init_err:
     return rc;
@@ -1499,7 +1430,7 @@ static int tfa9887_set_dsp_mode(struct tfa9887_amp_t *amp, int mode)
         goto set_dsp_err;
     }
 
-    ALOGI("%s: Set %s DSP mode to %d\n",
+    ALOGV("%s: Set %s DSP mode to %d\n",
             __func__, amp->is_right ? "right" : "left", mode);
 
 set_dsp_err:
@@ -1521,7 +1452,7 @@ static int tfa9887_lock(struct tfa9887_amp_t *amp, bool lock)
         return -ENODEV;
     }
 
-    ALOGD("%s: kernel lock fd:%d lock:%d\n", __func__,amp->fd, lock);
+    ALOGV("%s: kernel lock fd:%d lock:%d\n", __func__,amp->fd, lock);
     reg_value[0] = 1;
     reg_value[1] = lock ? 1 : 0;
     rc = ioctl(amp->fd, TFA9887_KERNEL_LOCK, &reg_value);
@@ -1549,7 +1480,7 @@ static int tfa9887_enable_dsp(struct tfa9887_amp_t *amp, bool enable)
         return -ENODEV;
     }
 
-    ALOGD("%s:enable dsp fd:%d set to:%d\n",__func__, amp->fd, enable);
+    ALOGV("%s:enable dsp fd:%d set to:%d\n",__func__, amp->fd, enable);
     reg_value[0] = 1;
     reg_value[1] = enable ? 1 : 0;
     rc = ioctl(amp->fd, TFA9887_ENABLE_DSP, &reg_value);
@@ -1559,7 +1490,7 @@ static int tfa9887_enable_dsp(struct tfa9887_amp_t *amp, bool enable)
         return rc;
     }
 
-    ALOGI("%s: Set %s DSP enable to %d\n",
+    ALOGV("%s: Set %s DSP enable to %d\n",
             __func__, amp->is_right ? "right" : "left", enable);
 
     return rc;
@@ -1591,53 +1522,7 @@ static int tfa9887_init(struct tfa9887_amp_t *amp, bool is_right)
                 __func__, amp->is_right ? "right" : "left", rc);
         return rc;
     }
-    ALOGD("%s: Completed device %s(%d) open\n", __func__, (amp->is_right ? TFA9887_DEVICE : TFA9887L_DEVICE), amp->fd);
-    return 0;
-}
-
-static int tfa9887_select_i2s_input(struct tfa9887_amp_t *amp)
-{
-    enum mixer_ctl_type type;
-    struct mixer_ctl *ctl;
-    struct mixer *mixer = mixer_open(0);
-    unsigned char out = TFA9887_I2SCTRL_LOOPBACK_DEFAULT;
-
-    if (mixer == NULL) {
-        ALOGE("%s: Error opening mixer 0", __func__);
-        return -1;
-    }
-
-    ALOGD("%s: mixer : %s\n", __func__, mixer_get_name(ctl));
-    ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL);
-    if (ctl == NULL) {
-            ctl = mixer_get_ctl_by_name(mixer, I2S_MIXER_CTL_MM5);
-            if( ctl == NULL ) {
-                mixer_close(mixer);
-                ALOGE("%s: Could not find %s\n", __func__, I2S_MIXER_CTL);
-                return -ENODEV;
-            } else { /* MultiMedia5 */
-		if( amp->is_right ) { /* No change for left spk */
-	            ALOGD("%s: %s selected\n", __func__, mixer_ctl_get_name(ctl) );
-		    tfa9887_select_input(amp, 1);
-		}
-	    }
-    } else { /* MultiMedia1 */
-	    if( amp->is_right ) { /* No change for left spk */
-	        ALOGD("%s: %s selected\n", __func__, mixer_ctl_get_name(ctl) );
-		out = 3;
-    	        //tfa9887_select_input(amp, 1);
-		tfa9887_select_input(amp, 2);
-		//tfa9887_select_input(amp, 3);
-		tfa9887_select_output_data(amp, out);
-	    } else { /* Left SPK for Loopback */
-		out = 0;
-		ALOGD("%s: LEFT SPK Loopback %d\n", out);
-		tfa9887_select_output_data(amp, out);
-	    }
-    }
-
-sel_i2s_in_end:
-    mixer_close(mixer);
+    ALOGV("%s: Completed device %s(%d) open\n", __func__, (amp->is_right ? TFA9887_DEVICE : TFA9887L_DEVICE), amp->fd);
     return 0;
 }
 
@@ -1653,10 +1538,10 @@ static int check_sys_control(struct tfa9887_amp_t *amp)
 
     rc = tfa9887_read_reg(amp, TFA9887_SYSTEM_CONTROL, &value);
     if( rc !=0 ) goto check_sys_ctrl_err;
-    ALOGD("%s: %s Amp system stat: %04x\n", __func__, (amp->is_right ? "RIGHT" : "LEFT"), value );
+    ALOGV("%s: %s Amp system stat: %04x\n", __func__, (amp->is_right ? "RIGHT" : "LEFT"), value );
     rc = tfa9887_read_reg(amp, TFA9887_STATUS, &value);
     if( rc !=0 ) goto check_sys_ctrl_err;
-    ALOGD("%s: %s Amp status: %04x\n", __func__, (amp->is_right ? "RIGHT" : "LEFT"), value );
+    ALOGV("%s: %s Amp status: %04x\n", __func__, (amp->is_right ? "RIGHT" : "LEFT"), value );
 
 check_sys_ctrl_err:
     return rc;
@@ -1677,7 +1562,7 @@ static int change_path_offload(struct tfa9887_amp_t *amp)
         /* I2S Control */
 	rc = tfa9887_read_reg(amp, TFA9887_I2S_CONTROL, &value);
 	if( rc != 0) goto path_offload_err;
-	ALOGD("%s: I2S_CONTROL(L) : %04x\n", __func__, value );
+	ALOGV("%s: I2S_CONTROL(L) : %04x\n", __func__, value );
 	//value &= ~(0x03<<3);
         //value |= 0x00; /* stereo */
 	//value &= ~(0x01<<10);
@@ -1686,20 +1571,20 @@ static int change_path_offload(struct tfa9887_amp_t *amp)
 	//value |= 0x00; /* Left bypassed */
         //rc = tfa9887_write_reg(amp, TFA9887_I2S_CONTROL, value);
 	//if( rc != 0) goto path_offload_err;
-	ALOGD("%s: I2S_CONTROL(L) changed : %04x\n", __func__, value );
+	ALOGV("%s: I2S_CONTROL(L) changed : %04x\n", __func__, value );
 	
 	/* I2S Select */
 	rc = tfa9887_read_reg(amp, TFA9887_I2S_SEL, &value);
 	if( rc != 0) goto path_offload_err;
-	ALOGD("%s: I2S_SELECT(L)  : %04x\n", __func__, value );
+	ALOGV("%s: I2S_SELECT(L)  : %04x\n", __func__, value );
     } else {
         /* */
 	rc = tfa9887_read_reg(amp, TFA9887_I2S_CONTROL, &value);
 	if( rc != 0) goto path_offload_err;
-	ALOGD("%s: I2S_CONTROL(R) : %04x\n", __func__, value);
+	ALOGV("%s: I2S_CONTROL(R) : %04x\n", __func__, value);
 	rc = tfa9887_read_reg(amp, TFA9887_I2S_SEL, &value);
 	if( rc != 0) goto path_offload_err;
-	ALOGD("%s: I2S_SELECT(R)  : %04x\n", __func__, value );
+	ALOGV("%s: I2S_SELECT(R)  : %04x\n", __func__, value );
     }
 
 path_offload_err:
@@ -1737,10 +1622,10 @@ int tfa9887_change_path(bool offload)
    for( i=0; i< AMP_MAX; i++ ) {
        amp = &amps[i];
        if(offload) {
-	   ALOGD("%s: Change path for OFFLOAD\n",__func__);
+	   ALOGV("%s: Change path for OFFLOAD\n",__func__);
            rc = change_path_offload(amp);
        } else {
-	   ALOGD("%s: Change path for NORMAL\n", __func__);
+	   ALOGV("%s: Change path for NORMAL\n", __func__);
 	   //rc = change_path_normal(amp);
 	   rc = change_path_offload(amp);
        }
@@ -1811,7 +1696,7 @@ open_i2s_shutdown:
         tfa9887_hw_power(amp, false);
     }
 
-    ALOGD("%s: device file open completed\n", __func__ ); 
+    ALOGV("%s: device file open completed\n", __func__ ); 
     return 0;
 }
 
@@ -1835,21 +1720,10 @@ int tfa9887_power(bool on, bool offload)
 	if(rc) {
             ALOGE("%s: tfa9887_enable_dataout Error code: %d\n",__func__, rc);
 	}
-	//rc = tfa9887_select_i2s_input(amp);
-	//if (rc) {
-	//    ALOGE("%s: Error for select i2s input on %s :code %d\n", __func__, amp->is_right? "right": "left", rc);
-	//}
     }
     tfa9887_amp_enable = on;
-    ALOGI("%s: Offload = %d\n", __func__, offload );
-#if 0
-    if (offload) { 
-        i2s_interface_en_offload( tfa9887_amp_enable );
-    } else {
-	i2s_interface_en( tfa9887_amp_enable );
-    }
-#endif
-    ALOGI("%s: Set amplifier power to %d\n", __func__, on);
+    ALOGV("%s: Offload = %d\n", __func__, offload );
+    ALOGV("%s: Set amplifier power to %d\n", __func__, on);
 
     return 0;
 }
@@ -1859,7 +1733,7 @@ int tfa9887_set_mode(int mode)
     int rc, i;
     struct tfa9887_amp_t *amp = NULL;
 
-    ALOGD("%s: set mode %d\n", __func__, mode );
+    ALOGV("%s: set mode %d\n", __func__, mode );
     if (!amps) {
         ALOGE("%s: TFA9887 not opened\n", __func__);
         return -ENODEV;
@@ -1886,7 +1760,6 @@ int tfa9887_set_mode(int mode)
         rc = tfa9887_mute(amp, TFA9887_MUTE_OFF);
         rc = tfa9887_lock(amp, false);
     }
-    //i2s_interface_en( tfa9887_amp_enable );
     ALOGV("%s: Set amplifier audio mode to %d\n", __func__, mode);
 
     return 0;
@@ -1897,6 +1770,7 @@ int tfa9887_close(void)
     int i;
     struct tfa9887_amp_t *amp = NULL;
 
+    ALOGV("%s: close amp\n", __func__);
     if (!amps) {
         ALOGE("%s: TFA9887 not open!\n", __func__);
     }
@@ -1908,6 +1782,7 @@ int tfa9887_close(void)
     }
 
     free(amps);
+    amps = NULL;
 
     return 0;
 }
